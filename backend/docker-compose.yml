@@ -1,0 +1,80 @@
+services:
+  # 스프링 애플리케이션 서비스 정의
+  spring-app:
+    image: spring-discord:latest # 컨테이너 이미지 지정
+    container_name: spring-backend-container
+    ports:
+      - "8080:8080"   # 스프링 애플리케이션 호스트와 컨테이너 간 포트매핑 정의
+    platform: linux/amd64   # amd64 아키텍처를 사용하는 linux 기반 시스템 플랫폼 지정
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:  # 환경 변수 설정
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql_db:3306/kjh_db?useSSL=false&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: "root"
+      SPRING_DATASOURCE_PASSWORD: "kjh12345"
+      SPRING_DATA_MONGODB_URI: mongodb://root:kjh12345@mongo_db:27017/chat_app?authSource=admin
+      CORS_PATTERN: http://[인스턴스 주소]:3000
+    links:
+      - mysql
+      - mongo
+      - redis
+    depends_on:  # 서비스 시작전 실행되어야 할 다른 서비스 -> db가 먼저 선행되어야 함
+      - mysql
+      - mongo
+      - redis
+    networks:  # 서비스 연결될 네트워크 지정
+      - backend
+
+  # mysql, mongodb, redis 서비스 정의
+  mysql:
+    image: mysql
+    container_name: mysql_db
+    environment:
+      MYSQL_ROOT_HOST: '%'
+      MYSQL_ROOT_PASSWORD: "kjh12345"
+      MYSQL_DATABASE: kjh_db
+      TZ: 'Asia/Seoul'
+    command:
+      - "mysqld"
+      - "--character-set-server=utf8mb4"
+      - "--collation-server=utf8mb4_unicode_ci"
+    ports:
+      - "3305:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    networks:
+      - backend
+
+  mongo:
+    image: mongo
+    container_name: mongo_db
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: kjh12345
+      MONGO_INITDB_DATABASE: chat_app
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    networks:
+      - backend
+
+  redis:
+    image: redis
+    container_name: redis_db
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./redis/data:/data
+    networks:
+      - backend
+
+volumes:  # 볼륨 정의
+  mysql-data:
+  mongo-data:
+  redis-data:
+
+networks:  # 모든 서비스 통신할 수 있는 내부 네트워크 정의
+  backend:
+    #driver: bridge
